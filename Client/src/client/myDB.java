@@ -1,10 +1,20 @@
 package client;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+
+import java.sql.Timestamp;
+
+import java.util.Date;
+import java.util.Vector;
+
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableModel;
 
 public class myDB {
         private String databaseName;
@@ -26,7 +36,21 @@ public class myDB {
         this.userid = userid;
         this.password = password;
     }
-
+   
+    public void getTables() {
+        DatabaseMetaData x;
+        try {
+            x = conn.getMetaData();
+            ResultSet tables = x.getTables(null, null, null, null);
+            if(tables.next())
+                   {
+                       System.out.println("Table "+tables.getString("TABLE_NAME"));
+                   }
+        } catch (SQLException e) {
+        }
+      
+        
+        }
 
     public void setDatabaseName(String databaseName) {
         this.databaseName = databaseName;
@@ -91,14 +115,16 @@ public class myDB {
         try {
             statement = conn.createStatement();
             statement.execute("CREATE TABLE users (" + 
-            "	id INT PRIMARY KEY," + 
-            "	username VARCHAR(30)," + 
-            "	password VARCHAR(20)," + 
-            "	is_admin CHAR(1)" + 
+            "	id INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), " + 
+            "	username VARCHAR(30) NOT NULL UNIQUE," + 
+            "	password VARCHAR(20) NOT NULL," + 
+            "	is_admin CHAR(1)," + 
+            "   created_on TIMESTAMP DEFAULT current_timestamp" + 
             "	)");   
             System.out.println("Table created successfully");
-            statement.execute("INSERT INTO users VALUES (1,'admin', 'admin', 'Y')");
-            statement.execute("INSERT INTO users VALUES (2,'user', 'user', 'N')");                         
+          //  Timestamp now = new Timestamp(new Date().getTime());
+            statement.execute("INSERT INTO users (username, password, is_admin) VALUES ('admin', 'admin', 'Y')");
+            statement.execute("INSERT INTO users (username, password, is_admin) VALUES ('user', 'user', 'N')");                         
         } catch (SQLException e) {
             System.out.println("Error creating table users..." + e);
         }
@@ -161,20 +187,16 @@ public class myDB {
             createProductsTable();
         }
     
-    public void addUser(int id, String username, String password, String is_admin) {
+    public void addUser(int id, String username, String password, String is_admin) throws SQLException {
     Statement statement;
    // "INSERT INTO users VALUES (2,'user', 'user', 'N')"
     String myInsert = "INSERT INTO users values (" +
                        id + ",'" + username + "', '" +
                        password + "', '" + is_admin + "')";
     System.out.println(myInsert);
-    try {
-        statement = conn.createStatement();
-        statement.execute(myInsert);                         
-        } catch (SQLException e) {
-        System.out.println("Error inserting user " 
-                           + username + " "+ e);
-        }
+    statement = conn.createStatement();
+    statement.execute(myInsert);                         
+      
     }
     
     public void deleteUser(int id) {
@@ -230,5 +252,61 @@ public class myDB {
       }
         return results;
     }
+
+
+    public void connect() {
+        try {
+          conn = DriverManager.getConnection(jdbcUrl, userid, password);
+            System.out.println("Connected to: " + databaseName);
+        } catch (SQLException e) {
+            System.out.println("Error Connecting to the database  " + databaseName);
+        }
+       
+    }
+    
+    public void disconnect() {
+        try {
+            conn.close();
+            System.out.println("Disconnected from: " + databaseName);
+        } catch (SQLException e) {
+            System.out.println("Error Disconnecting from the database  " + databaseName + " " + e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public TableModel fillTable(ResultSet rs) {
+           try {
+               ResultSetMetaData tableStructure = rs.getMetaData();
+               int numberOfColumns = tableStructure.getColumnCount();
+               Vector<String> columnNames = new Vector<String>();
+
+               // Get the column names
+               for (int column = 0; column < numberOfColumns; column++) {
+                   columnNames.addElement(tableStructure.getColumnLabel(column + 1));
+               }
+
+               // Get all rows.
+               Vector rows = new Vector();
+
+               while (rs.next()) {
+                   Vector newRow = new Vector();
+
+                   for (int i = 1; i<=numberOfColumns; i++) {
+                       newRow.addElement(rs.getObject(i));
+                   }
+                   rows.addElement(newRow);
+               }
+               rs.close();
+               return new DefaultTableModel(rows, columnNames);
+           } catch (Exception e) {
+               e.printStackTrace();
+
+               return null;
+           }
+       }
+    
+
+    
+
 }
 
